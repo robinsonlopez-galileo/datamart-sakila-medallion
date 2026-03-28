@@ -243,3 +243,9 @@ check_gold(CH)     # huérfanos en fact, integridad del Star Schema
 > ```sql
 > SELECT * FROM gold.dim_customers FINAL;
 > ```
+
+## .env
+La configuración de conexión del sistema fuente se encuentra definida en el archivo .env. Recuerde completar el host y la contraseña de su sistema destino antes de ejecutar el pipeline.
+
+
+
