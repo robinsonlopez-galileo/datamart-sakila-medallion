@@ -1,171 +1,209 @@
--- ══════════════════════════════════════════════
--- BRONZE — Todas las tablas raw
--- Copia exacta de PostgreSQL + auditoría
--- ══════════════════════════════════════════════
+-- ══════════════════════════════════════════════════════════════════
+-- BRONZE — Capa de Ingesta Raw
+-- Proyecto: Data Mart Sakila
+-- Motor: ClickHouse
+-- Descripción: Copia exacta de MySQL RDS + columnas de auditoría
+--              Sin transformaciones. Datos tal como vienen de la fuente.
+-- ══════════════════════════════════════════════════════════════════
 
-CREATE TABLE IF NOT EXISTS bronze.raw_customers (
-    customer_id   String,
-    company_name  String,
-    contact_name  Nullable(String),
-    contact_title Nullable(String),
-    address       Nullable(String),
-    city          Nullable(String),
-    region        Nullable(String),
-    postal_code   Nullable(String),
-    country       Nullable(String),
-    phone         Nullable(String),
-    fax           Nullable(String),
-    _ingested_at  DateTime DEFAULT now(),
-    _source       String   DEFAULT 'postgresql'
-)
-ENGINE = MergeTree()
-ORDER BY customer_id;
-
--- ──────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS bronze.raw_orders (
-    order_id         Int32,
-    customer_id      Nullable(String),
-    employee_id      Nullable(Int32),
-    order_date       Nullable(Date),
-    required_date    Nullable(Date),
-    shipped_date     Nullable(Date),
-    ship_via         Nullable(Int32),
-    freight          Nullable(Float64),
-    ship_name        Nullable(String),
-    ship_address     Nullable(String),
-    ship_city        Nullable(String),
-    ship_region      Nullable(String),
-    ship_postal_code Nullable(String),
-    ship_country     Nullable(String),
-    _ingested_at     DateTime DEFAULT now(),
-    _source          String   DEFAULT 'postgresql'
-)
-ENGINE = MergeTree()
-ORDER BY order_id;
-
--- ──────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS bronze.raw_order_details (
-    order_id     Int32,
-    product_id   Int32,
-    unit_price   Nullable(Float64),
-    quantity     Nullable(Int32),
-    discount     Nullable(Float64),
+CREATE TABLE IF NOT EXISTS bronze.raw_actor (
+    actor_id     UInt16,
+    first_name   String,
+    last_name    String,
+    last_update  DateTime,
     _ingested_at DateTime DEFAULT now(),
-    _source      String   DEFAULT 'postgresql'
-)
-ENGINE = MergeTree()
-ORDER BY (order_id, product_id);
+    _source      String   DEFAULT 'mysql'
+) ENGINE = MergeTree()
+ORDER BY actor_id;
 
 -- ──────────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS bronze.raw_products (
-    product_id        Int32,
-    product_name      Nullable(String),
-    supplier_id       Nullable(Int32),
-    category_id       Nullable(Int32),
-    quantity_per_unit Nullable(String),
-    unit_price        Nullable(Float64),
-    units_in_stock    Nullable(Int32),
-    units_on_order    Nullable(Int32),
-    reorder_level     Nullable(Int32),
-    discontinued      Nullable(Int32),
-    _ingested_at      DateTime DEFAULT now(),
-    _source           String   DEFAULT 'postgresql'
-)
-ENGINE = MergeTree()
-ORDER BY product_id;
+CREATE TABLE IF NOT EXISTS bronze.raw_address (
+    address_id   UInt16,
+    address      String,
+    address2     Nullable(String),
+    district     String,
+    city_id      UInt16,
+    postal_code  Nullable(String),
+    phone        String,
+    last_update  DateTime,
+    _ingested_at DateTime DEFAULT now(),
+    _source      String   DEFAULT 'mysql'
+) ENGINE = MergeTree()
+ORDER BY address_id;
 
 -- ──────────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS bronze.raw_categories (
-    category_id   Int32,
-    category_name Nullable(String),
-    description   Nullable(String),
-    _ingested_at  DateTime DEFAULT now(),
-    _source       String   DEFAULT 'postgresql'
-)
-ENGINE = MergeTree()
+CREATE TABLE IF NOT EXISTS bronze.raw_category (
+    category_id  UInt8,
+    name         String,
+    last_update  DateTime,
+    _ingested_at DateTime DEFAULT now(),
+    _source      String   DEFAULT 'mysql'
+) ENGINE = MergeTree()
 ORDER BY category_id;
 
 -- ──────────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS bronze.raw_suppliers (
-    supplier_id   Int32,
-    company_name  Nullable(String),
-    contact_name  Nullable(String),
-    contact_title Nullable(String),
-    address       Nullable(String),
-    city          Nullable(String),
-    region        Nullable(String),
-    postal_code   Nullable(String),
-    country       Nullable(String),
-    phone         Nullable(String),
-    fax           Nullable(String),
-    homepage      Nullable(String),
-    _ingested_at  DateTime DEFAULT now(),
-    _source       String   DEFAULT 'postgresql'
-)
-ENGINE = MergeTree()
-ORDER BY supplier_id;
-
--- ──────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS bronze.raw_employees (
-    employee_id       Int32,
-    last_name         Nullable(String),
-    first_name        Nullable(String),
-    title             Nullable(String),
-    title_of_courtesy Nullable(String),
-    birth_date        Nullable(Date),
-    hire_date         Nullable(Date),
-    address           Nullable(String),
-    city              Nullable(String),
-    region            Nullable(String),
-    postal_code       Nullable(String),
-    country           Nullable(String),
-    home_phone        Nullable(String),
-    extension         Nullable(String),
-    notes             Nullable(String),
-    photo_path        Nullable(String),
-    _ingested_at      DateTime DEFAULT now(),
-    _source           String   DEFAULT 'postgresql'
-)
-ENGINE = MergeTree()
-ORDER BY employee_id;
-
--- ──────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS bronze.raw_shippers (
-    shipper_id   Int32,
-    company_name Nullable(String),
-    phone        Nullable(String),
+CREATE TABLE IF NOT EXISTS bronze.raw_city (
+    city_id      UInt16,
+    city         String,
+    country_id   UInt16,
+    last_update  DateTime,
     _ingested_at DateTime DEFAULT now(),
-    _source      String   DEFAULT 'postgresql'
-)
-ENGINE = MergeTree()
-ORDER BY shipper_id;
+    _source      String   DEFAULT 'mysql'
+) ENGINE = MergeTree()
+ORDER BY city_id;
 
 -- ──────────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS bronze.raw_territories (
-    territory_id          String,
-    territory_description Nullable(String),
-    region_id             Nullable(Int32),
-    _ingested_at          DateTime DEFAULT now(),
-    _source               String   DEFAULT 'postgresql'
-)
-ENGINE = MergeTree()
-ORDER BY territory_id;
+CREATE TABLE IF NOT EXISTS bronze.raw_country (
+    country_id   UInt16,
+    country      String,
+    last_update  DateTime,
+    _ingested_at DateTime DEFAULT now(),
+    _source      String   DEFAULT 'mysql'
+) ENGINE = MergeTree()
+ORDER BY country_id;
 
 -- ──────────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS bronze.raw_region (
-    region_id          Int32,
-    region_description Nullable(String),
-    _ingested_at       DateTime DEFAULT now(),
-    _source            String   DEFAULT 'postgresql'
-)
-ENGINE = MergeTree()
-ORDER BY region_id;
+CREATE TABLE IF NOT EXISTS bronze.raw_customer (
+    customer_id  UInt16,
+    store_id     UInt8,
+    first_name   String,
+    last_name    String,
+    email        Nullable(String),
+    address_id   UInt16,
+    active       UInt8,
+    create_date  DateTime,
+    last_update  Nullable(DateTime),
+    _ingested_at DateTime DEFAULT now(),
+    _source      String   DEFAULT 'mysql'
+) ENGINE = MergeTree()
+ORDER BY customer_id;
+
+-- ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS bronze.raw_film (
+    film_id              UInt16,
+    title                String,
+    description          Nullable(String),
+    release_year         Nullable(UInt16),
+    language_id          UInt8,
+    original_language_id Nullable(UInt8),
+    rental_duration      UInt8,
+    rental_rate          Decimal(4,2),
+    length               Nullable(UInt16),
+    replacement_cost     Decimal(5,2),
+    rating               Nullable(String),
+    special_features     Nullable(String),
+    last_update          DateTime,
+    _ingested_at DateTime DEFAULT now(),
+    _source      String   DEFAULT 'mysql'
+) ENGINE = MergeTree()
+ORDER BY film_id;
+
+-- ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS bronze.raw_film_actor (
+    actor_id     UInt16,
+    film_id      UInt16,
+    last_update  DateTime,
+    _ingested_at DateTime DEFAULT now(),
+    _source      String   DEFAULT 'mysql'
+) ENGINE = MergeTree()
+ORDER BY (actor_id, film_id);
+
+-- ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS bronze.raw_film_category (
+    film_id      UInt16,
+    category_id  UInt8,
+    last_update  DateTime,
+    _ingested_at DateTime DEFAULT now(),
+    _source      String   DEFAULT 'mysql'
+) ENGINE = MergeTree()
+ORDER BY (film_id, category_id);
+
+-- ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS bronze.raw_inventory (
+    inventory_id UInt32,
+    film_id      UInt16,
+    store_id     UInt8,
+    last_update  DateTime,
+    _ingested_at DateTime DEFAULT now(),
+    _source      String   DEFAULT 'mysql'
+) ENGINE = MergeTree()
+ORDER BY inventory_id;
+
+-- ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS bronze.raw_language (
+    language_id  UInt8,
+    name         String,
+    last_update  DateTime,
+    _ingested_at DateTime DEFAULT now(),
+    _source      String   DEFAULT 'mysql'
+) ENGINE = MergeTree()
+ORDER BY language_id;
+
+-- ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS bronze.raw_payment (
+    payment_id   UInt16,
+    customer_id  UInt16,
+    staff_id     UInt8,
+    rental_id    Nullable(Int32),
+    amount       Decimal(5,2),
+    payment_date DateTime,
+    last_update  Nullable(DateTime),
+    _ingested_at DateTime DEFAULT now(),
+    _source      String   DEFAULT 'mysql'
+) ENGINE = MergeTree()
+ORDER BY payment_id;
+
+-- ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS bronze.raw_rental (
+    rental_id    Int32,
+    rental_date  DateTime,
+    inventory_id UInt32,
+    customer_id  UInt16,
+    return_date  Nullable(DateTime),
+    staff_id     UInt8,
+    last_update  DateTime,
+    _ingested_at DateTime DEFAULT now(),
+    _source      String   DEFAULT 'mysql'
+) ENGINE = MergeTree()
+ORDER BY rental_id;
+
+-- ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS bronze.raw_staff (
+    staff_id     UInt8,
+    first_name   String,
+    last_name    String,
+    address_id   UInt16,
+    email        Nullable(String),
+    store_id     UInt8,
+    active       UInt8,
+    username     String,
+    last_update  DateTime,
+    _ingested_at DateTime DEFAULT now(),
+    _source      String   DEFAULT 'mysql'
+) ENGINE = MergeTree()
+ORDER BY staff_id;
+
+-- ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS bronze.raw_store (
+    store_id         UInt8,
+    manager_staff_id UInt8,
+    address_id       UInt16,
+    last_update      DateTime,
+    _ingested_at DateTime DEFAULT now(),
+    _source      String   DEFAULT 'mysql'
+) ENGINE = MergeTree()
+ORDER BY store_id;

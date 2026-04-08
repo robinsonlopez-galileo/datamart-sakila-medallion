@@ -20,9 +20,9 @@ PG_USER     = os.getenv('PG_USER')
 PG_PASSWORD = os.getenv('PG_PASSWORD')
 
 PG_ENGINE = create_engine(
-    f"postgresql+psycopg2://{PG_USER}:{PG_PASSWORD}"
+    f"mysql+pymysql://{PG_USER}:{PG_PASSWORD}"
     f"@{PG_HOST}:{PG_PORT}/{PG_DATABASE}",
-    pool_pre_ping=True    # reconecta si la conexión cayó
+    pool_pre_ping=True
 )
 
 # ── ClickHouse ─────────────────────────────────────────────────

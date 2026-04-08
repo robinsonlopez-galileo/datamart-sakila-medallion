@@ -1,161 +1,180 @@
--- ══════════════════════════════════════════════
--- SILVER — Todas las tablas staging (stg_*)
--- Datos limpios, tipos correctos, sin modelo aún
--- ══════════════════════════════════════════════
+-- ══════════════════════════════════════════════════════════════════
+-- SILVER — Capa de Staging Curado
+-- Proyecto: Data Mart Sakila
+-- Motor: ClickHouse
+-- Descripción: Datos limpios y estandarizados desde Bronze.
+--              Nulos eliminados, tipos correctos, full_name generado.
+-- ══════════════════════════════════════════════════════════════════
 
-CREATE TABLE IF NOT EXISTS silver.stg_customers (
-    customer_id   String,
-    company_name  String,
-    contact_name  String,
-    contact_title String,
+CREATE TABLE IF NOT EXISTS silver.stg_actor (
+    actor_id      UInt16,
+    first_name    String,
+    last_name     String,
+    full_name     String,
+    _processed_at DateTime DEFAULT now()
+) ENGINE = ReplacingMergeTree(_processed_at)
+ORDER BY actor_id;
+
+-- ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS silver.stg_address (
+    address_id    UInt16,
     address       String,
-    city          String,
-    region        String,
+    address2      String,
+    district      String,
+    city_id       UInt16,
     postal_code   String,
-    country       String,
     phone         String,
-    fax           String,
     _processed_at DateTime DEFAULT now()
-)
-ENGINE = ReplacingMergeTree(_processed_at)
-ORDER BY customer_id;
+) ENGINE = ReplacingMergeTree(_processed_at)
+ORDER BY address_id;
 
 -- ──────────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS silver.stg_orders (
-    order_id         Int32,
-    customer_id      String,
-    employee_id      Int32,
-    order_date       Date,
-    required_date    Nullable(Date),
-    shipped_date     Nullable(Date),
-    ship_via         Int32,
-    freight          Float64,
-    ship_name        String,
-    ship_address     String,
-    ship_city        String,
-    ship_region      String,
-    ship_postal_code String,
-    ship_country     String,
-    _processed_at    DateTime DEFAULT now()
-)
-ENGINE = ReplacingMergeTree(_processed_at)
-ORDER BY order_id;
-
--- ──────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS silver.stg_order_details (
-    order_id      Int32,
-    product_id    Int32,
-    unit_price    Float64,
-    quantity      Int32,
-    discount      Float64,
+CREATE TABLE IF NOT EXISTS silver.stg_category (
+    category_id   UInt8,
+    name          String,
     _processed_at DateTime DEFAULT now()
-)
-ENGINE = ReplacingMergeTree(_processed_at)
-ORDER BY (order_id, product_id);
-
--- ──────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS silver.stg_products (
-    product_id        Int32,
-    product_name      String,
-    supplier_id       Int32,
-    category_id       Int32,
-    quantity_per_unit String,
-    unit_price        Float64,
-    units_in_stock    Int32,
-    units_on_order    Int32,
-    reorder_level     Int32,
-    discontinued      Int8,
-    _processed_at     DateTime DEFAULT now()
-)
-ENGINE = ReplacingMergeTree(_processed_at)
-ORDER BY product_id;
-
--- ──────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS silver.stg_categories (
-    category_id   Int32,
-    category_name String,
-    description   String,
-    _processed_at DateTime DEFAULT now()
-)
-ENGINE = ReplacingMergeTree(_processed_at)
+) ENGINE = ReplacingMergeTree(_processed_at)
 ORDER BY category_id;
 
 -- ──────────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS silver.stg_suppliers (
-    supplier_id   Int32,
-    company_name  String,
-    contact_name  String,
-    contact_title String,
-    address       String,
+CREATE TABLE IF NOT EXISTS silver.stg_city (
+    city_id       UInt16,
     city          String,
-    region        String,
-    postal_code   String,
+    country_id    UInt16,
+    _processed_at DateTime DEFAULT now()
+) ENGINE = ReplacingMergeTree(_processed_at)
+ORDER BY city_id;
+
+-- ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS silver.stg_country (
+    country_id    UInt16,
     country       String,
-    phone         String,
-    fax           String,
-    homepage      String,
     _processed_at DateTime DEFAULT now()
-)
-ENGINE = ReplacingMergeTree(_processed_at)
-ORDER BY supplier_id;
+) ENGINE = ReplacingMergeTree(_processed_at)
+ORDER BY country_id;
 
 -- ──────────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS silver.stg_employees (
-    employee_id       Int32,
-    last_name         String,
-    first_name        String,
-    full_name         String,
-    title             String,
-    title_of_courtesy String,
-    birth_date        Nullable(Date),
-    hire_date         Nullable(Date),
-    address           String,
-    city              String,
-    region            String,
-    postal_code       String,
-    country           String,
-    home_phone        String,
-    extension         String,
-    notes             String,
-    _processed_at     DateTime DEFAULT now()
-)
-ENGINE = ReplacingMergeTree(_processed_at)
-ORDER BY employee_id;
-
--- ──────────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS silver.stg_shippers (
-    shipper_id    Int32,
-    company_name  String,
-    phone         String,
+CREATE TABLE IF NOT EXISTS silver.stg_customer (
+    customer_id   UInt16,
+    store_id      UInt8,
+    first_name    String,
+    last_name     String,
+    full_name     String,
+    email         String,
+    address_id    UInt16,
+    active        UInt8,
+    create_date   DateTime,
     _processed_at DateTime DEFAULT now()
-)
-ENGINE = ReplacingMergeTree(_processed_at)
-ORDER BY shipper_id;
+) ENGINE = ReplacingMergeTree(_processed_at)
+ORDER BY customer_id;
 
 -- ──────────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS silver.stg_territories (
-    territory_id          String,
-    territory_description String,
-    region_id             Int32,
-    _processed_at         DateTime DEFAULT now()
-)
-ENGINE = ReplacingMergeTree(_processed_at)
-ORDER BY territory_id;
+CREATE TABLE IF NOT EXISTS silver.stg_film (
+    film_id          UInt16,
+    title            String,
+    description      String,
+    release_year     UInt16,
+    language_id      UInt8,
+    rental_duration  UInt8,
+    rental_rate      Decimal(4,2),
+    length           UInt16,
+    replacement_cost Decimal(5,2),
+    rating           String,
+    special_features String,
+    _processed_at    DateTime DEFAULT now()
+) ENGINE = ReplacingMergeTree(_processed_at)
+ORDER BY film_id;
 
 -- ──────────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS silver.stg_region (
-    region_id          Int32,
-    region_description String,
-    _processed_at      DateTime DEFAULT now()
-)
-ENGINE = ReplacingMergeTree(_processed_at)
-ORDER BY region_id;
+CREATE TABLE IF NOT EXISTS silver.stg_film_actor (
+    actor_id      UInt16,
+    film_id       UInt16,
+    _processed_at DateTime DEFAULT now()
+) ENGINE = ReplacingMergeTree(_processed_at)
+ORDER BY (actor_id, film_id);
+
+-- ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS silver.stg_film_category (
+    film_id       UInt16,
+    category_id   UInt8,
+    _processed_at DateTime DEFAULT now()
+) ENGINE = ReplacingMergeTree(_processed_at)
+ORDER BY (film_id, category_id);
+
+-- ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS silver.stg_inventory (
+    inventory_id  UInt32,
+    film_id       UInt16,
+    store_id      UInt8,
+    _processed_at DateTime DEFAULT now()
+) ENGINE = ReplacingMergeTree(_processed_at)
+ORDER BY inventory_id;
+
+-- ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS silver.stg_language (
+    language_id   UInt8,
+    name          String,
+    _processed_at DateTime DEFAULT now()
+) ENGINE = ReplacingMergeTree(_processed_at)
+ORDER BY language_id;
+
+-- ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS silver.stg_payment (
+    payment_id    UInt16,
+    customer_id   UInt16,
+    staff_id      UInt8,
+    rental_id     Int32,
+    amount        Decimal(5,2),
+    payment_date  DateTime,
+    _processed_at DateTime DEFAULT now()
+) ENGINE = ReplacingMergeTree(_processed_at)
+ORDER BY payment_id;
+
+-- ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS silver.stg_rental (
+    rental_id     Int32,
+    rental_date   DateTime,
+    inventory_id  UInt32,
+    customer_id   UInt16,
+    return_date   Nullable(DateTime),
+    staff_id      UInt8,
+    _processed_at DateTime DEFAULT now()
+) ENGINE = ReplacingMergeTree(_processed_at)
+ORDER BY rental_id;
+
+-- ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS silver.stg_staff (
+    staff_id      UInt8,
+    first_name    String,
+    last_name     String,
+    full_name     String,
+    email         String,
+    store_id      UInt8,
+    active        UInt8,
+    username      String,
+    _processed_at DateTime DEFAULT now()
+) ENGINE = ReplacingMergeTree(_processed_at)
+ORDER BY staff_id;
+
+-- ──────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS silver.stg_store (
+    store_id         UInt8,
+    manager_staff_id UInt8,
+    address_id       UInt16,
+    _processed_at    DateTime DEFAULT now()
+) ENGINE = ReplacingMergeTree(_processed_at)
+ORDER BY store_id;

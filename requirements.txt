@@ -1,0 +1,8 @@
+pandas
+clickhouse-driver
+sqlalchemy
+pymysql
+python-dotenv
+jupyterlab
+ipykernel
+matplotlib
