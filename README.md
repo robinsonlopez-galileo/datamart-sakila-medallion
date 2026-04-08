@@ -1,251 +1,278 @@
-# Northwind DW — Data Warehouse con Arquitectura Medallion en ClickHouse
+# 🎬 Data Mart Sakila — Arquitectura Medallion
 
-Proyecto educativo que implementa un Data Warehouse sobre la base de datos Northwind usando la arquitectura Medallion (Bronze / Silver / Gold) con Python y ClickHouse como motor analítico.
-
----
-
-## Arquitectura
-
-```
-PostgreSQL (Northwind)
-        │
-        ▼
-┌──────────────┐
-│    BRONZE    │  Copia exacta de la fuente. Sin transformaciones.
-│   raw_*      │  + _ingested_at, _source
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐
-│    SILVER    │  Datos limpios y validados. Tipos correctos.
-│   stg_*      │  Nulos resueltos. Sin modelo dimensional aún.
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐
-│     GOLD     │  Star Schema + KPIs precalculados.
-│  dim_*       │  dim_* desnormalizadas, fact_sales, agg_*
-│  fact_*      │
-│  agg_*       │
-└──────────────┘
-```
-
-### Star Schema (Gold)
-
-```
-              dim_date
-                 │
-dim_customers ───┤
-                 │
-dim_employees ───┼──── fact_sales ────── dim_products
-                 │
-dim_shippers  ───┘
-```
-
-`fact_sales` tiene granularidad de **línea de pedido** (una fila = un producto dentro de una orden). Incluye un surrogate key generado con `cityHash64(order_id, product_id)`.
+> **Proyecto Final Fase I** | Diseño & Construcción de Data Warehouse  
+> Universidad Galileo — Postgrado en Análisis y Predicción de Datos | Abril 2026
 
 ---
 
-## Estructura del proyecto
+## 👥 Integrantes
+
+| Nombre | Carnet |
+|--------|--------|
+| Robinson René López Hidalgo | 26007448 |
+| Mynor Geovanny Mendoza Ordóñez | 26008754 |
+
+---
+
+## 📋 Descripción del Proyecto
+
+Implementación de un **Data Mart completo** para la base de datos **Sakila**, que simula el sistema transaccional de una empresa de alquiler de películas. El proyecto utiliza la **Arquitectura Medallion** (Bronze / Silver / Gold) con **ClickHouse** como motor analítico y **MySQL en AWS RDS** como fuente de datos OLTP.
+
+---
+
+## 🏗️ Arquitectura de la Solución
 
 ```
-EJERCICIO_DW/
-├── .gitignore
-├── README.md
-│
-├── data/                          # archivos temporales (csv, parquet)
-├── docs/                          # diagramas y documentación
-│
+┌─────────────────────────────────────────────┐
+│         FUENTE DE DATOS (OLTP)              │
+│   MySQL 8.4.7 — AWS RDS — Base: Sakila      │
+│   16 tablas: rental, film, customer,        │
+│   payment, inventory, actor, store...       │
+└───────────────────┬─────────────────────────┘
+                    │  ETL con Python + pandas
+                    ▼
+┌─────────────────────────────────────────────┐
+│           CAPA BRONZE — ClickHouse          │
+│   Copia exacta de MySQL. Sin transformar.   │
+│   15 tablas raw_* con auditoría:            │
+│   _ingested_at | _source = 'mysql'          │
+│   Motor: MergeTree                          │
+└───────────────────┬─────────────────────────┘
+                    │  trimBoth, ifNull, concat
+                    ▼
+┌─────────────────────────────────────────────┐
+│           CAPA SILVER — ClickHouse          │
+│   Datos limpios y estandarizados.           │
+│   15 tablas stg_* con _processed_at         │
+│   full_name generado, nulos eliminados      │
+│   Motor: ReplacingMergeTree                 │
+└───────────────────┬─────────────────────────┘
+                    │  JOINs, dim_date con pandas
+                    ▼
+┌─────────────────────────────────────────────┐
+│            CAPA GOLD — ClickHouse           │
+│         ESQUEMA ESTRELLA (Star Schema)      │
+│                                             │
+│   dim_film      dim_customer   dim_staff    │
+│        \             |            /         │
+│         └────── fact_rental ─────┘          │
+│        /             |            \         │
+│   dim_store     dim_date      dim_actor     │
+│                                             │
+│   fact_rental: 16,044 hechos               │
+│   Motor: MergeTree + PARTITION BY mes       │
+└─────────────────────────────────────────────┘
+                    │
+                    ▼
+         Power BI Desktop (Fase II)
+         Conectado via ODBC a Gold
+```
+
+---
+
+## 🛠️ Tecnologías Utilizadas
+
+| Componente | Tecnología |
+|------------|------------|
+| Base de datos fuente | MySQL 8.4.7 en AWS RDS |
+| Motor analítico | ClickHouse 26.3 en AWS EC2 (Ubuntu 24.04) |
+| IP del servidor | Elastic IP: 16.59.133.181 |
+| Pipeline ETL | Python 3.11 + Jupyter Notebooks |
+| Manipulación de datos | pandas |
+| Conexión a ClickHouse | clickhouse-driver |
+| Conexión a MySQL | SQLAlchemy + PyMySQL |
+| Cliente SQL | DBeaver Community |
+| SSH al servidor | Termius |
+| Visualización | Power BI Desktop |
+| Región AWS | us-east-2 (Ohio) |
+
+---
+
+## 📁 Estructura del Repositorio
+
+```
+datamart-sakila-medallion/
 ├── notebooks/
-│   ├── .env                       # credenciales (NO subir a git)
-│   ├── sql/
-│   │   ├── 01_bronze_ddl.sql      # DDL tablas Bronze
-│   │   ├── 02_silver_ddl.sql      # DDL tablas Silver
-│   │   └── 03_gold_ddl.sql        # DDL tablas Gold
-│   │
-│   ├── 00_setup.ipynb             # crea databases y tablas
-│   ├── 01_etl_raw_2_bronze.ipynb  # PostgreSQL → Bronze
-│   ├── 02_etl_bronze_2_silver.ipynb # Bronze → Silver
-│   ├── 03_etl_silver_2_gold.ipynb # Silver → Gold
-│   └── 04_pipeline.ipynb          # orquesta todo el flujo
-│
-└── src/
-    ├── config.py                  # conexiones PG y ClickHouse
-    ├── utils.py                   # execute_sql_file
-    ├── checks.py                  # validaciones por capa
-    ├── etl_raw_2_bronze.py        # funciones ETL Bronze
-    ├── etl_bronze_2_silver.py     # funciones ETL Silver
-    └── etl_silver_2_gold.py       # funciones ETL Gold
+│   ├── 00_setup.ipynb              ← Crea las 36 tablas en ClickHouse
+│   ├── 01_etl_raw_2_bronze.ipynb   ← MySQL → Bronze (15 tablas raw_*)
+│   ├── 02_etl_bronze_2_silver.ipynb ← Bronze → Silver (limpieza)
+│   ├── 03_etl_silver_2_gold.ipynb  ← Silver → Gold (Star Schema)
+│   ├── 04_quality_check.ipynb      ← Validaciones de calidad
+│   └── 05_analisis.ipynb           ← Consultas analíticas + gráfico
+├── sql/
+│   ├── bronze_ddl.sql              ← DDL 15 tablas raw_*
+│   ├── silver_ddl.sql              ← DDL 15 tablas stg_*
+│   └── gold_ddl.sql                ← DDL 6 dims + fact_rental
+├── src/
+│   ├── config.py                   ← Conexiones MySQL + ClickHouse
+│   └── utils.py                    ← execute_sql_file()
+├── outputs/
+│   └── serie_temporal_sakila.png   ← Gráfico serie temporal
+├── .env.example                    ← Plantilla de credenciales
+├── .gitignore
+├── requirements.txt
+└── README.md
 ```
 
 ---
 
-## Requisitos
+## ⚙️ Instalación y Configuración
 
-- Python 3.10+
-- PostgreSQL con la base de datos Northwind
-- ClickHouse Server
-
-### Instalación de dependencias
+### 1. Clonar el repositorio
 
 ```bash
-pip install clickhouse-driver psycopg2-binary pandas sqlalchemy python-dotenv
+git clone https://github.com/robinsonlopez-galileo/datamart-sakila-medallion.git
+cd datamart-sakila-medallion
 ```
 
----
-
-## Configuración
-
-Crea el archivo `notebooks/.env` basándote en el ejemplo:
+### 2. Crear el entorno Python
 
 ```bash
-cp notebooks/.env.example notebooks/.env
+# Con Conda (recomendado)
+conda create -n northwind python=3.11 -y
+conda activate northwind
+
+# O con venv
+python -m venv venv
+venv\Scripts\activate   # Windows
 ```
 
-Edita `.env` con tus credenciales:
+### 3. Instalar dependencias
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Configurar credenciales
+
+```bash
+# Copiar la plantilla
+cp .env.example src/.env
+
+# Editar src/.env con sus credenciales reales
+```
+
+Contenido del archivo `src/.env`:
 
 ```env
-# PostgreSQL
-PG_HOST=localhost
-PG_PORT=5432
-PG_DATABASE=northwind
-PG_USER=tu_usuario
-PG_PASSWORD=tu_password
+# MySQL (AWS RDS)
+PG_HOST=your-rds-endpoint.rds.amazonaws.com
+PG_PORT=3306
+PG_DATABASE=sakila
+PG_USER=admin
+PG_PASSWORD=your_password
 
-# ClickHouse
-CH_HOST=localhost
+# ClickHouse (AWS EC2)
+CH_HOST=your-ec2-ip
 CH_PORT=9000
-CH_USER=default
-CH_PASSWORD=
+CH_USER=ch_user
+CH_PASSWORD=your_password
 
 # Capas
 BRONZE_DB=bronze
 SILVER_DB=silver
 GOLD_DB=gold
+
+# Pipeline
+LOG_LEVEL=INFO
+BATCH_SIZE=50000
 ```
 
 ---
 
-## Ejecución
+## ▶️ Orden de Ejecución
 
-### Opción 1 — Notebook por notebook (recomendado para aprender)
+Abrir Jupyter Lab desde la carpeta del proyecto y ejecutar los notebooks en este orden:
 
-```
-00_setup.ipynb             → crea las 3 databases y todas las tablas
-01_etl_raw_2_bronze.ipynb  → carga datos desde PostgreSQL
-02_etl_bronze_2_silver.ipynb → limpia y transforma
-03_etl_silver_2_gold.ipynb → construye el Star Schema y KPIs
-```
+| Orden | Notebook | Función | Resultado |
+|-------|----------|---------|-----------|
+| 1 | `00_setup.ipynb` | Crea las tablas en ClickHouse | 36 tablas (15+15+6) |
+| 2 | `01_etl_raw_2_bronze.ipynb` | MySQL → Bronze | 16,044 rentas cargadas |
+| 3 | `02_etl_bronze_2_silver.ipynb` | Bronze → Silver | Datos limpios |
+| 4 | `03_etl_silver_2_gold.ipynb` | Silver → Gold | Star Schema completo |
+| 5 | `04_quality_check.ipynb` | Validaciones | Todos los checks ✓ |
+| 6 | `05_analisis.ipynb` | Consultas + gráfico | 5 preguntas analíticas |
 
-### Opción 2 — Pipeline completo
-
-```
-04_pipeline.ipynb          → ejecuta todo de principio a fin
-```
-
----
-
-## Tablas por capa
-
-### Bronze — copia raw
-
-| Tabla | Descripción |
-|-------|-------------|
-| `raw_customers` | Clientes |
-| `raw_orders` | Órdenes de compra |
-| `raw_order_details` | Detalle de cada orden |
-| `raw_products` | Productos |
-| `raw_categories` | Categorías |
-| `raw_suppliers` | Proveedores |
-| `raw_employees` | Empleados |
-| `raw_shippers` | Transportistas |
-| `raw_territories` | Territorios |
-| `raw_region` | Regiones |
-
-### Silver — staging limpio
-
-| Tabla | Descripción |
-|-------|-------------|
-| `stg_customers` | Clientes normalizados |
-| `stg_orders` | Órdenes con tipos correctos |
-| `stg_order_details` | Detalle sin nulos |
-| `stg_products` | Productos limpios |
-| `stg_categories` | Categorías |
-| `stg_suppliers` | Proveedores |
-| `stg_employees` | Empleados con `full_name` calculado |
-| `stg_shippers` | Transportistas |
-| `stg_territories` | Territorios |
-| `stg_region` | Regiones |
-
-### Gold — Star Schema + KPIs
-
-| Tabla | Tipo | Descripción |
-|-------|------|-------------|
-| `dim_customers` | Dimensión | Clientes |
-| `dim_products` | Dimensión | Productos desnormalizados con categoría y proveedor |
-| `dim_employees` | Dimensión | Empleados |
-| `dim_shippers` | Dimensión | Transportistas |
-| `dim_territories` | Dimensión | Territorios con región |
-| `dim_date` | Dimensión | Calendario 1990–2030 |
-| `fact_sales` | Hecho | Líneas de pedido con surrogate key |
-| `agg_sales_monthly` | Agregación | Ventas por mes y país |
-| `agg_product_performance` | Agregación | Performance de productos |
-| `agg_customer_rfm` | Agregación | RFM de clientes |
-| `agg_employee_kpis` | Agregación | KPIs de empleados |
-
----
-
-## Decisiones de diseño
-
-**¿Por qué dos capas antes del Star Schema?**
-Bronze garantiza que siempre tienes una copia fiel de la fuente. Silver te da datos confiables para construir el modelo. Si algo falla en Gold, reprocessas desde Silver sin tocar la fuente.
-
-**¿Por qué ClickHouse?**
-Motor columnar open source optimizado para queries analíticas. Lee millones de filas por segundo y comprime muy bien datos repetitivos como los de un DW.
-
-**¿Por qué una sola `fact_sales`?**
-`orders` y `order_details` se desnormalizan en una sola tabla con granularidad de línea de pedido. Simplifica los JOINs y es suficiente para todos los KPIs del negocio.
-
-**`sale_price` vs `list_price`**
-`dim_products.list_price` es el precio de catálogo actual. `fact_sales.sale_price` es el precio real al que se vendió. Esto permite analizar descuentos respecto al catálogo.
-
-**ClickHouse no tiene Foreign Keys**
-La integridad referencial es responsabilidad del pipeline. Por eso las dimensiones se cargan siempre antes que `fact_sales` y los checks validan huérfanos después de cada carga.
-
----
-
-## Validaciones
-
-Cada capa tiene sus propios checks:
-
-```python
-from checks import check_bronze, check_silver, check_gold
-from config import CH
-
-check_bronze(CH)   # nulos en PK, duplicados, conteos
-check_silver(CH)   # tipos, rangos, valores vacíos
-check_gold(CH)     # huérfanos en fact, integridad del Star Schema
+```bash
+# Abrir Jupyter Lab
+jupyter lab
 ```
 
 ---
 
-## Motores ClickHouse por capa
+## 📊 Resultados del Pipeline
 
-| Capa | Motor | Por qué |
-|------|-------|---------|
-| Bronze | `MergeTree` | Solo append, no hay re-cargas |
-| Silver | `ReplacingMergeTree` | Re-ejecutable sin duplicados |
-| Gold dims | `ReplacingMergeTree` | Se reconstruyen completas cada vez |
-| Gold facts | `MergeTree` + PARTITION | Eventos, particionados por mes |
-| Gold aggs | `ReplacingMergeTree` | Se recalculan en cada ejecución |
+### Conteos por capa
 
-> Al consultar tablas `ReplacingMergeTree` usa `FINAL` para garantizar resultados deduplicados:
-> ```sql
-> SELECT * FROM gold.dim_customers FINAL;
-> ```
+| Tabla | Bronze | Silver | Gold |
+|-------|--------|--------|------|
+| rental / fact_rental | 16,044 | 16,044 | 16,044 |
+| film / dim_film | 1,000 | 1,000 | 1,000 |
+| customer / dim_customer | 599 | 599 | 599 |
+| actor / dim_actor | 200 | 200 | 200 |
+| address | 603 | 603 | — |
+| inventory | 4,581 | 4,581 | — |
+| film_actor | 5,462 | 5,462 | — |
+| dim_date | — | — | 1,095 |
 
-## .env
-La configuración de conexión del sistema fuente se encuentra definida en el archivo .env. Recuerde completar el host y la contraseña de su sistema destino antes de ejecutar el pipeline.
+### Quality Check — Resultados
 
+| Validación | Resultado |
+|------------|-----------|
+| PKs nulas en tablas principales | ✅ 0 errores |
+| Duplicados en dimensiones | ✅ 0 duplicados |
+| Clientes sin país en Gold | ✅ 0 errores |
+| Registros huérfanos en fact_rental | ✅ 0 huérfanos |
+| Montos negativos en pagos | ✅ 0 errores |
+| dim_date sin duplicados | ✅ 0 duplicados |
 
+---
 
+## 🔍 Consultas Analíticas (Fase I)
+
+El notebook `05_analisis.ipynb` responde las siguientes preguntas de negocio:
+
+1. **Top 10 películas más rentadas** — Bucket Brotherhood (34), Rocketeer Mother (33)
+2. **País con más rentas** — Distribución geográfica de 109 países
+3. **Montos totales por cliente** — Ranking de los 599 clientes
+4. **Actor con más rentas** — Cruce fact_rental + film_actor + dim_actor
+5. **Serie temporal de ingresos** — Gráfico mensual 2005–2007
+
+---
+
+## 📈 Fase II — Tablero Power BI (En construcción)
+
+Power BI Desktop conectado directamente a la capa Gold de ClickHouse mediante ODBC.
+
+**Visualizaciones planificadas:**
+- 📊 Top 10 películas más rentadas (barras)
+- 🗺️ Mapa de rentas por país
+- 📈 Serie temporal de ingresos mensuales
+- 👥 Ranking de clientes por monto
+- 🎭 Top actores por rentas generadas
+- 🃏 KPIs: Total Rentas | Ingresos | Clientes | Películas
+
+---
+
+## 🎥 Video de Presentación
+
+[▶️ Ver presentación en YouTube](URL_DEL_VIDEO)
+
+---
+
+## 📄 Documentación
+
+La documentación formal del proyecto en formato APA 7 está disponible en el repositorio del curso en el GES de Universidad Galileo.
+
+---
+
+## 📝 Notas Técnicas
+
+- El archivo `.env` **no está versionado** por seguridad. Use `.env.example` como plantilla.
+- Las instancias AWS (RDS + EC2) están activas y accesibles para evaluación.
+- El pipeline es **re-ejecutable**: cada notebook hace TRUNCATE antes de insertar.
+- La tabla `address` de Sakila requirió un script especial por incompatibilidad del tipo GEOMETRY con MySQL 8.4.7 en RDS.
+
+---
+
+*Robinson René López Hidalgo & Mynor Geovanny Mendoza Ordóñez — Universidad Galileo 2026*
