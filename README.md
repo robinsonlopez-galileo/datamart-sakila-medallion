@@ -256,7 +256,7 @@ Power BI Desktop conectado directamente a la capa Gold de ClickHouse mediante OD
 
 ## 🎥 Video de Presentación
 
-[▶️ Ver presentación en YouTube](URL_DEL_VIDEO)
+[▶️ Ver presentación en YouTube](https://www.youtube.com/watch?v=XlhqRh6DHqU)
 
 ---
 
